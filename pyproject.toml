@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "performance-insights-agent"
+version = "1.0.0"
+description = "Governed AI agent for sales performance questions: LangGraph NL-to-SQL with code-enforced guardrails, self-correction, numeric grounding, audit logging and evals."
+requires-python = ">=3.10"
+dependencies = [
+  "langgraph>=0.2",
+  "openai>=1.40",
+  "sqlglot>=25",
+  "duckdb>=1.1",
+  "pandas>=2.1",
+  "numpy>=1.26",
+  "pyyaml>=6",
+  "streamlit>=1.38",
+  "plotly>=5.20",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pia = ["evals/*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

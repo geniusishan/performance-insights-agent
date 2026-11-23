@@ -1,0 +1,18 @@
+{
+  "summary": {
+    "model": "n/a (offline)",
+    "guardrail_block_rate": 1.0,
+    "guardrail_false_positive_rate": 0.0,
+    "reference_queries_valid": true
+  },
+  "guardrails": {
+    "red_team_total": 24,
+    "red_team_blocked": 24,
+    "leaked": [],
+    "reference_total": 20,
+    "false_positives": []
+  },
+  "reference_errors": [],
+  "golden": null,
+  "behaviour": null
+}

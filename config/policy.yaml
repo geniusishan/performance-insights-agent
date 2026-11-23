@@ -1,0 +1,43 @@
+# Governance policy enforced in code (src/pia/guardrails.py), not just asked of the LLM.
+
+allowed_tables:
+  - marts.rep_monthly
+  - marts.market_monthly
+  - marts.fct_signings
+  - scorecard.rep
+  - scorecard.territory
+  - scorecard.market
+  - targets.territory_plan
+  - forecast.signings
+  - dq.results
+
+blocked_functions:   # file / network / system access
+  - read_csv
+  - read_csv_auto
+  - read_parquet
+  - read_json
+  - read_json_auto
+  - read_text
+  - read_blob
+  - glob
+  - getenv
+  - current_setting
+  - duckdb_settings
+  - duckdb_tables
+  - duckdb_columns
+  - pragma_table_info
+  - httpfs
+  - sqlite_scan
+  - postgres_scan
+
+roles:
+  analyst:
+    restricted_columns: []
+  viewer:                     # e.g. a broad leadership distribution list
+    restricted_columns: [rep_name]
+
+limits:
+  max_rows: 500
+  query_timeout_seconds: 15
+  max_repair_attempts: 2
+  max_question_chars: 1000

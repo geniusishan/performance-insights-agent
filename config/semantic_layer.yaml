@@ -1,0 +1,157 @@
+# Semantic layer: the single source of truth the agent reasons over.
+# The LLM never sees raw tables it is not allowed to query, and every business metric
+# has ONE governed SQL definition here, so "attainment" means the same thing in
+# every answer, dashboard and scorecard.
+
+business_context: >
+  Sales performance data for a global card network's merchant-acquisition field force.
+  Hierarchy: region > market > territory > rep. Reps sign new merchants ("signings");
+  signed merchants then generate charge volume. The plan year is the calendar year.
+  Scorecards are year-to-date (YTD) for the current plan year, through the as-of month.
+
+tables:
+  marts.rep_monthly:
+    grain: one row per rep per month
+    description: Monthly actuals per rep. Main table for trends and any month/quarter question.
+    columns:
+      month: first day of the month (DATE)
+      rep_id: rep identifier
+      rep_name: rep full name (RESTRICTED - employee personal data)
+      role: Acquisition or Account Development
+      territory_id: territory identifier
+      territory_name: territory display name, e.g. 'India Territory 3'
+      market_id: 2-letter market code (IN, JP, AU, UK, DE, US, CA, MX)
+      market_name: market display name, e.g. 'India'
+      region: JAPA, EMEA, NA or LACC
+      signings: new merchants signed in the month
+      mid_large_signings: signings in Mid or Large segment
+      expected_annual_volume_usd: expected annual charge volume of merchants signed
+      new_merchant_volume_usd: charge volume in the month from merchants signed in the same calendar year
+      activated_90d: eligible signings that transacted within 90 days
+      activation_eligible: signings whose 90-day activation window has closed
+  marts.market_monthly:
+    grain: one row per market per month
+    description: Monthly actuals per market (same measures as rep_monthly plus active_reps).
+    columns:
+      month: first day of the month
+      market_id: market code
+      market_name: market name
+      region: region
+      signings: new merchants signed
+      mid_large_signings: Mid/Large signings
+      new_merchant_volume_usd: new-merchant charge volume
+      activated_90d: activated within 90 days
+      activation_eligible: activation-eligible signings
+      active_reps: reps with at least one signing in the month
+  marts.fct_signings:
+    grain: one row per merchant signed
+    description: Signing-level detail. Use for industry, segment or signing-date questions.
+    columns:
+      merchant_id: merchant identifier
+      rep_id: signing rep
+      territory_id: territory
+      market_id: market code
+      region: region
+      signed_date: date signed
+      signed_month: first day of signing month
+      industry: Restaurants, Retail, Travel, Healthcare, Education, Professional Services, Online & Digital, Fuel & Auto
+      segment: Small, Mid or Large
+      is_mid_large: 1 if Mid or Large
+      expected_annual_volume_usd: expected annual volume
+      first_txn_month: first month with charge volume (NULL if never transacted)
+      activated_90d: 1 if transacted within 90 days
+      activation_eligible: 1 if the 90-day window has closed
+  scorecard.rep:
+    grain: one row per rep (YTD of current plan year)
+    description: Official YTD rep scorecard with targets, attainment, weighted score, tier and rank.
+    columns: &scorecols
+      rep_id: rep identifier (rep table only)
+      rep_name: rep name (rep table only; RESTRICTED)
+      territory_name: territory name
+      market_name: market name
+      region: region
+      signings: YTD signings
+      target_signings: YTD signings target
+      new_volume: YTD new-merchant volume USD
+      target_new_volume: YTD new-merchant volume target USD
+      activation_rate: YTD 90-day activation rate (0-1)
+      mid_large_mix: share of signings that are Mid/Large (0-1)
+      att_signings: signings attainment = signings / target_signings (0-1.5, capped)
+      att_new_volume: volume attainment (capped at 1.5)
+      att_activation_90d: activation_rate / 0.75 goal
+      att_quality_mix: mid_large_mix / 0.28 goal
+      score: weighted score = 0.40*att_signings + 0.30*att_new_volume + 0.20*att_activation_90d + 0.10*att_quality_mix
+      tier: Exceeds (>=1.10), Meets (>=0.95), Below (>=0.80), Needs Attention (<0.80)
+      biggest_gap: KPI costing the most weighted points
+      rank_in_market: rank by score within market (1 = best)
+      plan_year: plan year
+      as_of_month: last month included
+  scorecard.territory:
+    grain: one row per territory (YTD)
+    description: Territory scorecard. Same columns as scorecard.rep without rep fields.
+    columns: *scorecols
+  scorecard.market:
+    grain: one row per market (YTD)
+    description: Market scorecard. Same columns as scorecard.rep without rep/territory fields; has rank_global.
+    columns: *scorecols
+  targets.territory_plan:
+    grain: one row per territory per plan_year
+    description: How annual signings targets were set (current year and next year's plan).
+    columns:
+      plan_year: plan year
+      market_id: market code
+      territory_name: territory name
+      prior_12m_signings: signings in the 12 months before the plan was set
+      historical_share: share of market's last-12-month signings
+      whitespace_share: share of market's unsigned merchant universe
+      capacity_share: share of ramp-adjusted rep capacity
+      final_share: final share of the market plan after caps
+      annual_target: annual signings target
+      change_vs_prior_pct: annual_target / prior_12m_signings - 1
+  forecast.signings:
+    grain: one row per market per future month
+    description: Signings forecast with 80% interval from the back-test-selected model.
+    columns:
+      month: forecast month
+      market_id: market code
+      market_name: market name
+      forecast: point forecast of signings
+      lower: lower bound (80%)
+      upper: upper bound (80%)
+      model: model used
+  dq.results:
+    grain: one row per data-quality check in the latest run
+    description: Data quality checks behind the published numbers.
+    columns:
+      check_id: check identifier
+      category: Validity, Integrity, Reconciliation, Freshness, Anomaly
+      severity: CRITICAL, WARNING
+      passed: true/false
+      failing_rows: rows affected
+      detail: description
+
+metrics:
+  signings_attainment:
+    synonyms: [attainment, achievement, "% to target", "vs target"]
+    sql: SUM(signings) / NULLIF(SUM(target_signings), 0)
+    note: Compute from sums when aggregating; never average att_signings across rows.
+  activation_rate:
+    synonyms: [activation, "90-day activation", "go-live rate"]
+    sql: SUM(activated_90d) / NULLIF(SUM(activation_eligible), 0)
+  mid_large_mix:
+    synonyms: [quality mix, "large merchant share"]
+    sql: SUM(mid_large_signings) / NULLIF(SUM(signings), 0)
+  new_merchant_volume:
+    synonyms: [new volume, "new business volume", spend, charge volume]
+    sql: SUM(new_merchant_volume_usd)
+  yoy_growth:
+    synonyms: [growth, "year over year"]
+    sql: compare the same months of the current and prior year, never a partial year against a full year
+
+rules:
+  - "Use only the tables above, always schema-qualified (e.g. marts.rep_monthly)."
+  - "YTD means months of the current plan year up to and including the as-of month."
+  - "For a ratio over a group, divide sums; do not average per-row ratios."
+  - "Match names exactly: market_name 'United States', 'United Kingdom'; territory_name like 'India Territory 3'."
+  - "Return tidy, small results: aggregate, sort meaningfully, and LIMIT ranked lists."
+  - "Percentages are stored as fractions (0.92 = 92%)."

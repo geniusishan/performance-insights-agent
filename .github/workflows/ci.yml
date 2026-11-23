@@ -1,0 +1,34 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install agent + the data platform it queries
+        run: |
+          pip install -e ".[dev]"
+          pip install "git+https://github.com/${{ github.repository_owner }}/field-performance-hub"
+      - name: Unit + graph tests (scripted LLM, no key needed)
+        run: pytest -q
+      - name: Guardrail red-team eval (must block 100%)
+        run: |
+          export PIA_WAREHOUSE=$(python -c "import tempfile;print(tempfile.gettempdir())")/ci_wh.duckdb
+          FPH_WAREHOUSE=$PIA_WAREHOUSE python -m fph.pipeline run
+          python -m pia.evals.run_evals --offline
+      - name: Full agent eval (only when an LLM key secret is configured)
+        if: ${{ env.LLM_API_KEY != '' }}
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_PROVIDER: gemini
+        run: python -m pia.evals.run_evals
