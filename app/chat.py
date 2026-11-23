@@ -69,13 +69,13 @@ with st.sidebar:
         st.stop()
     key_ok = bool(os.environ.get("LLM_API_KEY")) or os.environ.get("LLM_PROVIDER") == "ollama"
     provider = os.environ.get("LLM_PROVIDER", "gemini")
-    st.caption(f"LLM: **{provider}** {'✅' if key_ok else '⚠️ no API key (set LLM_API_KEY in .env)'}")
+    st.caption(f"LLM: **{provider}** {'✅' if key_ok else '⚠️ no API key (set LLM_API_KEY in .env or app secrets)'}")
     role = st.selectbox("Your role", list(policy()["roles"]), help="Viewer cannot see rep names (restricted column).")
     st.markdown("**Try asking**")
     for ex in EXAMPLES:
-        if st.button(ex, use_container_width=True, disabled=not key_ok):
+        if st.button(ex, width="stretch", disabled=not key_ok):
             st.session_state.pending = ex
-    if st.button("🧹 New conversation", use_container_width=True):
+    if st.button("🧹 New conversation", width="stretch"):
         st.session_state.messages = []
         st.rerun()
     st.caption("Every query is checked by code-enforced guardrails, run read-only, "
@@ -92,7 +92,7 @@ def render_chart(df: pd.DataFrame, spec: dict) -> None:
     if spec.get("percent"):
         fig.update_layout(yaxis_tickformat=".0%")
     fig.update_layout(height=340, margin=dict(l=10, r=10, t=30, b=10), xaxis_title=None)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def render_result(m: dict, idx: int) -> None:
@@ -112,7 +112,7 @@ def render_result(m: dict, idx: int) -> None:
                 st.markdown("**Verified figures:** " + ", ".join(m["checked"]))
             if m["assumptions"]:
                 st.markdown("**Assumptions:** " + "; ".join(m["assumptions"]))
-            st.dataframe(df, hide_index=True, use_container_width=True)
+            st.dataframe(df, hide_index=True, width="stretch")
             st.download_button("Download CSV", df.to_csv(index=False), file_name=f"result_{idx}.csv",
                                key=f"dl{idx}")
             st.caption("Trace: " + " → ".join(f"{t['step']} ({t['seconds']}s)" for t in m["trace"]))
@@ -176,7 +176,7 @@ with tab_audit:
         c[2].metric("Refused / failed", int(log["status"].isin(["refused", "failed"]).sum()))
         c[3].metric("Median latency", f"{log['seconds'].median():.1f}s")
         st.dataframe(log[["ts", "role", "question", "status", "rows", "seconds", "tokens", "flags", "sql"]],
-                     hide_index=True, use_container_width=True)
+                     hide_index=True, width="stretch")
 
 with tab_evals:
     rep = ROOT / "evals" / "report.md"
