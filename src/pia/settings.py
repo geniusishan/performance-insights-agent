@@ -7,8 +7,10 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[2]
-CONFIG = ROOT / "config"
+PKG = Path(__file__).resolve().parent
+CONFIG = PKG / "config"
+# repo root when run from a clone; current folder when installed as a package
+ROOT = PKG.parents[1] if (PKG.parents[1] / "pyproject.toml").exists() else Path.cwd()
 
 
 def _load_dotenv() -> None:

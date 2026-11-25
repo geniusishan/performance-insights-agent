@@ -13,7 +13,7 @@ Most text-to-SQL demos stop at "the LLM wrote a query". In a regulated company t
 | Prompt injection ("ignore your rules and…") | Router refuses out-of-scope requests; injection patterns are flagged in the audit log; even a fully compromised LLM still can't pass the SQL guardrails |
 | Employee personal data exposed | **Role-based column policy**: a `viewer` can't select `rep_name`, including through `SELECT *` |
 | Hallucinated numbers in the narrative | **Numeric grounding check**: every figure must trace to the result (with rounding, %, $M handling). If not, the answer is regenerated with feedback, then shown with an explicit ⚠️ *Unverified* banner |
-| Wrong or inconsistent metric definitions | **Semantic layer** (`config/semantic_layer.yaml`) with one governed SQL definition per metric |
+| Wrong or inconsistent metric definitions | **Semantic layer** (`src/pia/config/semantic_layer.yaml`) with one governed SQL definition per metric |
 | Bad SQL | **Self-correction loop**: guardrail rejections and database errors go back to the SQL writer (bounded retries), then the agent fails safely rather than guessing |
 | Runaway queries | Automatic row cap + query timeout via `interrupt()` |
 | "How do we know it works?" | **Evaluation suite**: golden questions scored by *execution accuracy*, behaviour tests, a 24-query red-team set, latency and token tracking |
@@ -88,9 +88,9 @@ pytest -q                   # 22 tests, scripted LLM, no key needed
 ## Project structure
 
 ```
-config/semantic_layer.yaml   tables, grain, columns, governed metrics, rules (the LLM's only view of the data)
-config/policy.yaml           allow-listed tables, blocked functions, role column policy, limits
 src/pia/
+  config/semantic_layer.yaml tables, grain, columns, governed metrics, rules (the LLM's only view of the data)
+  config/policy.yaml         allow-listed tables, blocked functions, role column policy, limits
   agent.py                   LangGraph state machine (route → SQL → guard → run → answer → verify)
   guardrails.py              sqlglot AST policy enforcement + row limit injection
   db.py                      read-only connection, external access off, timeout
