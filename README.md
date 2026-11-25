@@ -1,5 +1,9 @@
 # 🤖 Performance Insights Agent
 
+[![Open live demo](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://performance-insights-agent.streamlit.app/)  **[Live demo](https://performance-insights-agent.streamlit.app/)** · data platform it queries: **[Field Performance Hub](https://field-performance-center.streamlit.app/)**
+
+> The demo runs on synthetic data. To keep it fair for everyone, please keep questions to sales-performance topics.
+
 **A governed AI agent that lets sales leaders ask performance questions in plain English, with every query policed by code, every number checked against the data, and every answer logged.**
 
 > *"Which markets are behind target this year, and what's their biggest gap?"*
