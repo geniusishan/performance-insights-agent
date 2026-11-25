@@ -100,7 +100,8 @@ def agent_suite(spec: dict, agent, pause: float = 0.0) -> tuple[list[dict], list
         try:
             r = agent.ask(q["question"], session_id="eval")
             ok = results_match(ref, r.data)
-            rows.append({"id": q["id"], "question": q["question"], "pass": ok, "status": r.status,
+            err = r.answer if "error" in r.flags else None
+            rows.append({"id": q["id"], "question": q["question"], "pass": ok, "status": r.status, "error": err,
                          "grounded": not r.grounding_unsupported, "repairs": len(r.attempts),
                          "seconds": r.seconds, "tokens": r.tokens, "sql": r.sql})
         except Exception as e:  # noqa: BLE001
@@ -118,7 +119,8 @@ def agent_suite(spec: dict, agent, pause: float = 0.0) -> tuple[list[dict], list
             ok &= not set(b["expect_no_columns"]) & set(r.data.columns)
         if "expect_tables_not" in b and r.sql:
             ok &= not any(t in r.sql.lower() for t in b["expect_tables_not"])
-        beh.append({"id": b["id"], "question": b["question"], "pass": bool(ok), "status": r.status})
+        beh.append({"id": b["id"], "question": b["question"], "pass": bool(ok), "status": r.status,
+                    "error": r.answer if "error" in r.flags else None})
         print(f"  {b['id']} {'PASS' if ok else 'FAIL'}  {r.status}  {b['question']}")
     return rows, beh
 
@@ -159,6 +161,17 @@ def write_report(g: dict, ref_bad: list[str], rows: list[dict] | None, beh: list
     return summary
 
 
+def preflight(llm) -> None:
+    """One tiny call before the suite: if the provider/model/key is wrong, stop with the real error
+    instead of producing a misleading 0% report."""
+    try:
+        llm.complete_json("ping", "Reply with JSON.", 'Return {"ok": true}')
+    except Exception as e:  # noqa: BLE001
+        raise SystemExit(f"LLM preflight failed for {llm.name}: {type(e).__name__}: {str(e)[:600]}\n"
+                         "Check the LLM_MODEL secret (exact model id from AI Studio) and the API key.")
+    print(f"LLM preflight OK ({llm.name})")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--offline", action="store_true", help="skip LLM-based evals")
@@ -174,8 +187,13 @@ def main() -> None:
         from pia.agent import InsightsAgent
         agent = InsightsAgent()
         model = agent.llm.name
+        preflight(agent.llm)
         print(f"Agent suite with {model} ...")
         rows, beh = agent_suite(spec, agent, args.pause)
+        errors = [r for r in rows + beh if "error" in str(r["status"]) or r.get("error")]
+        if len(errors) > len(rows + beh) // 2:
+            raise SystemExit(f"Aborted: {len(errors)} of {len(rows + beh)} questions hit LLM errors "
+                             f"(e.g. {errors[0].get('error') or errors[0]['status']}). Report NOT written.")
     s = write_report(g, ref_bad, rows, beh, model)
     print(json.dumps(s, indent=2))
     if s["guardrail_block_rate"] < 1 or s["guardrail_false_positive_rate"] > 0 or ref_bad:

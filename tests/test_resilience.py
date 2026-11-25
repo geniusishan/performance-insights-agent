@@ -71,3 +71,10 @@ def test_chat_history_renders_without_debug_dump(monkeypatch):
     text = " ".join(str(getattr(e, "value", "")) for e in at.main)
     assert "DeltaGenerator" not in text
     assert not at.get("help")  # Streamlit magic must not render st.help of a return value
+
+
+def test_eval_preflight_stops_on_broken_llm():
+    from pia.evals.run_evals import preflight
+    fake = FakeLLM({"ping": _boom})
+    with pytest.raises(SystemExit, match="preflight failed"):
+        preflight(fake)

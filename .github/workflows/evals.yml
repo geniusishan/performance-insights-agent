@@ -49,7 +49,7 @@ jobs:
         if: always() && steps.eval.outcome != 'skipped'
         run: cat evals/report.md >> $GITHUB_STEP_SUMMARY || true
       - name: Commit report to the repo (shown in the app's Evals tab)
-        if: always() && steps.eval.outcome != 'skipped'
+        if: steps.eval.outcome == 'success'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
