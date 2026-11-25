@@ -41,3 +41,8 @@ limits:
   query_timeout_seconds: 15
   max_repair_attempts: 2
   max_question_chars: 1000
+
+usage:                        # public-demo protection for the LLM quota (see src/pia/ratelimit.py)
+  per_session: 20             # questions per visitor session
+  cooldown_seconds: 4         # minimum gap between questions
+  global_per_hour: 150        # whole app, all visitors combined

@@ -91,9 +91,10 @@ def reference_suite(spec: dict) -> list[str]:
     return bad
 
 
-def agent_suite(spec: dict, agent) -> tuple[list[dict], list[dict]]:
+def agent_suite(spec: dict, agent, pause: float = 0.0) -> tuple[list[dict], list[dict]]:
     rows = []
     for q in spec["questions"]:
+        time.sleep(pause)  # stay under free-tier requests-per-minute limits
         ref = run_query(guardrails.validate(q["sql"]).sql).df
         t0 = time.perf_counter()
         try:
@@ -108,6 +109,7 @@ def agent_suite(spec: dict, agent) -> tuple[list[dict], list[dict]]:
         print(f"  {q['id']} {'PASS' if rows[-1]['pass'] else 'FAIL'}  {rows[-1]['status']}  {q['question']}")
     beh = []
     for b in spec["behaviour"]:
+        time.sleep(pause)
         r = agent.ask(b["question"], role=b.get("role", "analyst"), session_id="eval")
         ok = True
         if "expect_status" in b:
@@ -160,6 +162,7 @@ def write_report(g: dict, ref_bad: list[str], rows: list[dict] | None, beh: list
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--offline", action="store_true", help="skip LLM-based evals")
+    ap.add_argument("--pause", type=float, default=0.0, help="seconds to wait between questions (free tiers)")
     args = ap.parse_args()
     spec = load()
     print("Guardrail red-team suite ...")
@@ -172,7 +175,7 @@ def main() -> None:
         agent = InsightsAgent()
         model = agent.llm.name
         print(f"Agent suite with {model} ...")
-        rows, beh = agent_suite(spec, agent)
+        rows, beh = agent_suite(spec, agent, args.pause)
     s = write_report(g, ref_bad, rows, beh, model)
     print(json.dumps(s, indent=2))
     if s["guardrail_block_rate"] < 1 or s["guardrail_false_positive_rate"] > 0 or ref_bad:

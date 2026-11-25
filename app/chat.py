@@ -15,7 +15,7 @@ import plotly.express as px
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from pia import audit, brief, db  # noqa: E402
+from pia import audit, brief, db, ratelimit  # noqa: E402
 from pia.settings import ROOT, policy  # noqa: E402
 
 st.set_page_config(page_title="Performance Insights Agent", page_icon="🤖", layout="wide")
@@ -33,6 +33,21 @@ if "session_id" not in st.session_state:
     st.session_state.session_id = uuid.uuid4().hex[:8]
     st.session_state.messages = []
     st.session_state.pending = None
+if "usage" not in st.session_state:
+    st.session_state.usage = ratelimit.SessionUsage()
+
+
+@st.cache_resource(show_spinner=False)
+def global_limiter() -> ratelimit.GlobalLimiter:
+    """One limiter shared by every visitor of this app instance."""
+    return ratelimit.GlobalLimiter(per_hour=ratelimit.limits()["global_per_hour"])
+
+
+def allow_llm_call() -> bool:
+    d = ratelimit.check(st.session_state.usage, global_limiter())
+    if not d.allowed:
+        st.warning(d.message)
+    return d.allowed
 
 
 @st.cache_resource(show_spinner=False)
@@ -70,6 +85,9 @@ with st.sidebar:
     key_ok = bool(os.environ.get("LLM_API_KEY")) or os.environ.get("LLM_PROVIDER") == "ollama"
     provider = os.environ.get("LLM_PROVIDER", "gemini")
     st.caption(f"LLM: **{provider}** {'✅' if key_ok else '⚠️ no API key (set LLM_API_KEY in .env or app secrets)'}")
+    lim = ratelimit.limits()
+    st.caption(f"Questions left this visit: {max(0, lim['per_session'] - st.session_state.usage.count)}"
+               f" / {lim['per_session']}")
     role = st.selectbox("Your role", list(policy()["roles"]), help="Viewer cannot see rep names (restricted column).")
     st.markdown("**Try asking**")
     for ex in EXAMPLES:
@@ -133,6 +151,9 @@ with tab_chat:
                 st.markdown(m["content"])
     typed = st.chat_input("Ask about signings, targets, scorecards, forecasts…", disabled=not key_ok)
     question = typed or st.session_state.pending
+    if question and not allow_llm_call():
+        st.session_state.pending = None
+        question = None
     if question:
         st.session_state.pending = None
         st.session_state.messages.append({"role": "user", "content": question})
@@ -155,7 +176,7 @@ with tab_brief:
     st.markdown("Facts are computed with fixed SQL; the LLM only writes prose; every number is verified. "
                 "If verification fails, a deterministic template is published instead.")
     c1, c2 = st.columns(2)
-    if c1.button("Generate with LLM", disabled=not key_ok, type="primary"):
+    if c1.button("Generate with LLM", disabled=not key_ok, type="primary") and allow_llm_call():
         st.session_state.brief = brief.generate()
     if c2.button("Generate template version"):
         f = brief.facts()
@@ -169,9 +190,13 @@ with tab_brief:
             st.json(b["facts"])
 
 with tab_audit:
-    log = audit.load()
+    st.caption("For privacy, you see only the questions from your own visit. Every visitor's questions are "
+               "still logged on the server for governance.")
+    log = audit.load(5000)
+    if not log.empty and "session_id" in log.columns:
+        log = log[log["session_id"] == st.session_state.session_id]
     if log.empty:
-        st.info("No questions logged yet.")
+        st.info("No questions logged yet in this visit.")
     else:
         c = st.columns(4)
         c[0].metric("Questions", len(log))

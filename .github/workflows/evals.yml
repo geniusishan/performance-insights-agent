@@ -1,0 +1,51 @@
+name: agent-evals
+
+# Runs the full LLM evaluation on demand (Actions tab -> agent-evals -> Run workflow).
+# Manual only, so it never spends LLM quota on ordinary pushes.
+# Needs repository secrets: LLM_API_KEY and LLM_MODEL (Settings -> Secrets and variables -> Actions).
+
+on:
+  workflow_dispatch:
+    inputs:
+      pause_seconds:
+        description: "Seconds between questions (raise if you hit free-tier rate limits)"
+        default: "8"
+
+permissions:
+  contents: write   # to commit the report back to the repo
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      LLM_PROVIDER: gemini
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_MODEL: ${{ secrets.LLM_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - name: Check secrets are set
+        run: |
+          if [ -z "$LLM_API_KEY" ]; then echo "::error::Add the LLM_API_KEY repository secret first"; exit 1; fi
+      - run: pip install -r requirements.txt
+      - name: Build the warehouse
+        run: |
+          export PIA_WAREHOUSE=$RUNNER_TEMP/wh.duckdb
+          echo "PIA_WAREHOUSE=$PIA_WAREHOUSE" >> $GITHUB_ENV
+          FPH_WAREHOUSE=$PIA_WAREHOUSE python -m fph.pipeline run
+      - name: Run full evaluation
+        run: python -m pia.evals.run_evals --pause "${{ inputs.pause_seconds }}"
+      - name: Publish summary
+        if: always()
+        run: cat evals/report.md >> $GITHUB_STEP_SUMMARY || true
+      - name: Commit report to the repo (shown in the app's Evals tab)
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f evals/report.md evals/report.json
+          git diff --cached --quiet || git commit -m "Update evaluation report" && git push

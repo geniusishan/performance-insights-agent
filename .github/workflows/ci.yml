@@ -24,9 +24,3 @@ jobs:
           export PIA_WAREHOUSE=$(python -c "import tempfile;print(tempfile.gettempdir())")/ci_wh.duckdb
           FPH_WAREHOUSE=$PIA_WAREHOUSE python -m fph.pipeline run
           python -m pia.evals.run_evals --offline
-      - name: Full agent eval (only when an LLM key secret is configured)
-        if: ${{ env.LLM_API_KEY != '' }}
-        env:
-          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
-          LLM_PROVIDER: gemini
-        run: python -m pia.evals.run_evals

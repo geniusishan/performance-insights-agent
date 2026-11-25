@@ -21,6 +21,8 @@ Most text-to-SQL demos stop at "the LLM wrote a query". In a regulated company t
 | Bad SQL | **Self-correction loop**: guardrail rejections and database errors go back to the SQL writer (bounded retries), then the agent fails safely rather than guessing |
 | Runaway queries | Automatic row cap + query timeout via `interrupt()` |
 | "How do we know it works?" | **Evaluation suite**: golden questions scored by *execution accuracy*, behaviour tests, a 24-query red-team set, latency and token tracking |
+| Quota abuse on the public demo | **Usage limits**: per-visitor question cap with cooldown, plus an app-wide hourly cap that a page refresh can't bypass |
+| Visitors seeing each other's questions | The audit tab shows each visitor **only their own session**; the full log stays server-side for governance |
 | Accountability | Append-only **audit log**: who asked, role, SQL, guardrail verdicts, rejected attempts, rows, verified figures, latency, tokens |
 
 ![Weekly brief](docs/weekly_brief.png)
@@ -58,17 +60,20 @@ Built with **LangGraph** (explicit state machine, bounded loops), **sqlglot** (S
 ## Evaluation
 
 ```bash
-python -m pia.evals.run_evals --offline   # no API key: red-team + reference checks (runs in CI)
-python -m pia.evals.run_evals             # full agent eval with your LLM → evals/report.md
+python -m pia.evals.run_evals --offline   # no API key: red-team + reference checks (runs in CI on every push)
+python -m pia.evals.run_evals --pause 8   # full agent eval with your LLM → evals/report.md
 ```
+
+**Or run it on GitHub, no laptop needed:** add `LLM_API_KEY` and `LLM_MODEL` as repository secrets, then
+Actions → **agent-evals** → **Run workflow**. The report is committed to `evals/report.md` and shows up in the live app's 🧪 Evals tab.
 
 | Suite | What it measures | Result |
 |---|---|---|
 | Red-team SQL (24 attacks: DML/DDL, ATTACH, COPY, file reads, `getenv`, CTE shadowing, cross-DB, restricted columns) | guardrail block rate | **100%** |
 | 20 legitimate reference queries | guardrail false-positive rate | **0%** |
-| 20 golden questions | execution accuracy (result-set match, tolerant to rounding and % scaling) | *run with your key → fill in* |
-| 5 behaviour cases | definitions, refusals, injection, viewer privacy | *run with your key → fill in* |
-| All answers | grounded-answer rate, p50/p95 latency, tokens/question | *run with your key → fill in* |
+| 20 golden questions | execution accuracy (result-set match, tolerant to rounding and % scaling) | *pending first run of the agent-evals workflow* |
+| 5 behaviour cases | definitions, refusals, injection, viewer privacy | *pending first run of the agent-evals workflow* |
+| All answers | grounded-answer rate, p50/p95 latency, tokens/question | *pending first run of the agent-evals workflow* |
 
 The scorer itself is tested: an oracle that returns the reference SQL must score 100% (`tests/test_agent.py`).
 
