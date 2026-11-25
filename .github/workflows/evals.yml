@@ -28,8 +28,8 @@ jobs:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
       LLM_MODEL: ${{ secrets.LLM_MODEL }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
           cache: pip
@@ -43,12 +43,13 @@ jobs:
           echo "PIA_WAREHOUSE=$PIA_WAREHOUSE" >> $GITHUB_ENV
           FPH_WAREHOUSE=$PIA_WAREHOUSE python -m fph.pipeline run
       - name: Run full evaluation
+        id: eval
         run: python -m pia.evals.run_evals --pause "${{ inputs.pause_seconds || '8' }}"
       - name: Publish summary
-        if: always()
+        if: always() && steps.eval.outcome != 'skipped'
         run: cat evals/report.md >> $GITHUB_STEP_SUMMARY || true
       - name: Commit report to the repo (shown in the app's Evals tab)
-        if: always()
+        if: always() && steps.eval.outcome != 'skipped'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
