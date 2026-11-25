@@ -139,8 +139,14 @@ class InsightsAgent:
         t0 = time.perf_counter()
         g = s.get("grounding")
         feedback = f"these numbers are not in the result: {', '.join(g.unsupported)}" if g and not g.ok else None
-        data, extra = self._llm("answer", *prompts.answer_prompt(s["standalone_question"], s["sql"], s["df"],
-                                                                  s.get("assumptions", []), feedback))
+        try:
+            data, extra = self._llm("answer", *prompts.answer_prompt(s["standalone_question"], s["sql"], s["df"],
+                                                                      s.get("assumptions", []), feedback))
+        except Exception as e:  # noqa: BLE001 - the query already succeeded: show verified data, not a crash
+            return {"answer": "The AI service didn't respond while writing the summary, so here is the verified "
+                              "result straight from the governed query. Ask again for a written summary.",
+                    "follow_ups": [], "answer_tries": 2, "flags": s.get("flags", []) + ["llm_error_on_answer"],
+                    **self._step("write_answer", t0, f"LLM error: {type(e).__name__}")}
         return {"answer": data.get("answer", "").strip(), "follow_ups": data.get("follow_ups", [])[:3],
                 "answer_tries": s.get("answer_tries", 0) + 1, **extra, **self._step("write_answer", t0)}
 
@@ -215,11 +221,23 @@ class InsightsAgent:
             session_id: str = "cli") -> AgentResult:
         t0 = time.perf_counter()
         rid = uuid.uuid4().hex[:12]
-        s: State = self.graph.invoke(
-            {"question": question, "role": role, "history": history or [], "as_of": db.as_of(),
-             "attempts": [], "trace": [], "tokens": [], "flags": []},
-            {"recursion_limit": 30},
-        )
+        try:
+            s: State = self.graph.invoke(
+                {"question": question, "role": role, "history": history or [], "as_of": db.as_of(),
+                 "attempts": [], "trace": [], "tokens": [], "flags": []},
+                {"recursion_limit": 30},
+            )
+        except Exception as e:  # noqa: BLE001 - never show users a stack trace
+            res = AgentResult(
+                question=question, status="failed", flags=["error"], request_id=rid,
+                seconds=round(time.perf_counter() - t0, 3),
+                answer=("Sorry, the AI service returned a temporary error and I couldn't finish this question. "
+                        f"Please try again in a moment. (error: {type(e).__name__})"))
+            if self.write_audit:
+                audit.record({"request_id": rid, "session_id": session_id, "role": role, "model": self.llm.name,
+                              "question": question, "status": "failed", "error": f"{type(e).__name__}: {str(e)[:300]}",
+                              "seconds": res.seconds, "answer": res.answer})
+            return res
         g = s.get("grounding")
         answer = s.get("answer", "")
         if s.get("status") == "answered_unverified":

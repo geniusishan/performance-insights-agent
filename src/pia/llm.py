@@ -64,19 +64,26 @@ class OpenAICompatibleLLM:
         key = api_key or os.environ.get("LLM_API_KEY") or ("ollama" if self.provider == "ollama" else None)
         if not key:
             raise RuntimeError("LLM_API_KEY is not set. Copy .env.example to .env and add a free Gemini or Groq key.")
-        self.client = OpenAI(api_key=key, base_url=base_url, timeout=60, max_retries=2)
+        self.client = OpenAI(api_key=key, base_url=base_url, timeout=90, max_retries=3)
         self.temperature = temperature
         self.name = f"{self.provider}:{self.model}"
 
     def complete_json(self, task: str, system: str, user: str) -> LLMResponse:
+        import openai
+
         t0 = time.perf_counter()
-        resp = self.client.chat.completions.create(
+        kwargs = dict(
             model=self.model,
             temperature=self.temperature,
             messages=[{"role": "system", "content": system + "\n\nRespond with a single JSON object only."},
                       {"role": "user", "content": user}],
-            response_format={"type": "json_object"},
         )
+        try:
+            resp = self.client.chat.completions.create(**kwargs, response_format={"type": "json_object"})
+        except (openai.InternalServerError, openai.BadRequestError):
+            # Some providers' OpenAI-compatible endpoints intermittently fail in strict JSON mode;
+            # the prompt already demands JSON and _parse_json tolerates fences, so retry without it.
+            resp = self.client.chat.completions.create(**kwargs)
         text = resp.choices[0].message.content or "{}"
         usage = getattr(resp, "usage", None)
         return LLMResponse(

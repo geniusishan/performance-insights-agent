@@ -127,7 +127,10 @@ tab_chat, tab_brief, tab_audit, tab_evals = st.tabs(["💬 Ask", "📰 Weekly br
 with tab_chat:
     for i, m in enumerate(st.session_state.messages):
         with st.chat_message(m["role"]):
-            render_result(m, i) if m["role"] == "assistant" else st.markdown(m["content"])
+            if m["role"] == "assistant":
+                render_result(m, i)
+            else:
+                st.markdown(m["content"])
     typed = st.chat_input("Ask about signings, targets, scorecards, forecasts…", disabled=not key_ok)
     question = typed or st.session_state.pending
     if question:
@@ -175,7 +178,7 @@ with tab_audit:
         c[1].metric("Answered & verified", f"{(log['status'] == 'answered').mean():.0%}")
         c[2].metric("Refused / failed", int(log["status"].isin(["refused", "failed"]).sum()))
         c[3].metric("Median latency", f"{log['seconds'].median():.1f}s")
-        st.dataframe(log[["ts", "role", "question", "status", "rows", "seconds", "tokens", "flags", "sql"]],
+        st.dataframe(log.reindex(columns=["ts", "role", "question", "status", "rows", "seconds", "tokens", "flags", "sql"]),
                      hide_index=True, width="stretch")
 
 with tab_evals:
