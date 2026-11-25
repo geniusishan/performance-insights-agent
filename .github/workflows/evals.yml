@@ -1,7 +1,7 @@
 name: agent-evals
 
 # Runs the full LLM evaluation on demand (Actions tab -> agent-evals -> Run workflow).
-# Manual only, so it never spends LLM quota on ordinary pushes.
+# Manual only (or by editing evals/RUN_EVALS.txt), so ordinary pushes never spend LLM quota.
 # Needs repository secrets: LLM_API_KEY and LLM_MODEL (Settings -> Secrets and variables -> Actions).
 
 on:
@@ -9,7 +9,12 @@ on:
     inputs:
       pause_seconds:
         description: "Seconds between questions (raise if you hit free-tier rate limits)"
+        type: string
+        required: false
         default: "8"
+  push:                      # also runs when evals/RUN_EVALS.txt changes (edit it to re-run from a phone)
+    branches: [main]
+    paths: [evals/RUN_EVALS.txt]
 
 permissions:
   contents: write   # to commit the report back to the repo
@@ -38,7 +43,7 @@ jobs:
           echo "PIA_WAREHOUSE=$PIA_WAREHOUSE" >> $GITHUB_ENV
           FPH_WAREHOUSE=$PIA_WAREHOUSE python -m fph.pipeline run
       - name: Run full evaluation
-        run: python -m pia.evals.run_evals --pause "${{ inputs.pause_seconds }}"
+        run: python -m pia.evals.run_evals --pause "${{ inputs.pause_seconds || '8' }}"
       - name: Publish summary
         if: always()
         run: cat evals/report.md >> $GITHUB_STEP_SUMMARY || true
