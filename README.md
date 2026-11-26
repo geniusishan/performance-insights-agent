@@ -53,6 +53,10 @@ flowchart TD
 
 Built with **LangGraph** (explicit state machine, bounded loops), **sqlglot** (SQL parsing and policy), **DuckDB** (or BigQuery via the companion project), and any **OpenAI-compatible LLM**: Gemini, Groq, OpenAI or local Ollama, switched with one env var.
 
+## Answers "why", not just "what"
+
+Ask *"Why is Japan behind target?"* and the agent reads the **gap-driver analysis** from the Field Performance Hub: every gap to target split exactly into **headcount** (more or fewer reps than planned), **ramp & role mix** (new hires still ramping) and **productivity** (signings per fully productive rep). The answer names the main driver with the numbers behind it, and the hallucination check verifies every one of them.
+
 ## Weekly executive brief: AI-enabled reporting automation
 
 `python -m pia.brief` builds a leadership brief where **the facts are computed by fixed, reviewed SQL and the LLM only writes the prose**. Every number in the draft is verified against the facts pack. If it fails twice, a deterministic template brief is published instead, so the pipeline **never ships an unverified number**.
@@ -71,7 +75,7 @@ Actions → **agent-evals** → **Run workflow**. The report is committed to `ev
 |---|---|---|
 | Red-team SQL (24 attacks: DML/DDL, ATTACH, COPY, file reads, `getenv`, CTE shadowing, cross-DB, restricted columns) | guardrail block rate | **100%** |
 | 20 legitimate reference queries | guardrail false-positive rate | **0%** |
-| 20 golden questions | execution accuracy (result-set match, tolerant to rounding and % scaling) | *pending first run of the agent-evals workflow* |
+| 22 golden questions (including "why" questions) | execution accuracy (result-set match, tolerant to rounding and % scaling) | *pending first run of the agent-evals workflow* |
 | 5 behaviour cases | definitions, refusals, injection, viewer privacy | *pending first run of the agent-evals workflow* |
 | All answers | grounded-answer rate, p50/p95 latency, tokens/question | *pending first run of the agent-evals workflow* |
 
@@ -91,7 +95,7 @@ cp .env.example .env        # set LLM_API_KEY
 # 3. Use it
 streamlit run app/chat.py   # chat · weekly brief · audit log · evals
 python -m pia.brief         # brief to briefs/
-pytest -q                   # 22 tests, scripted LLM, no key needed
+pytest -q                   # 32 tests, scripted LLM, no key needed
 ```
 
 ## Project structure
@@ -111,7 +115,7 @@ src/pia/
   audit.py                   append-only JSONL audit trail
   evals/                     golden set, behaviour cases, red-team SQL, harness and report
 app/chat.py                  Streamlit UI with "How I got this" panel (SQL, guardrails, verified figures, trace)
-tests/                       22 tests: guardrails, every graph path, privacy, audit, read-only, eval scorer, UI
+tests/                       32 tests: guardrails, every graph path, privacy, audit, read-only, eval scorer, rate limits, UI
 ```
 
 ## Design decisions

@@ -65,6 +65,12 @@ questions:
   - id: q20
     question: Who is the top-scoring rep in Mexico?
     sql: SELECT rep_name FROM scorecard.rep WHERE market_name = 'Mexico' ORDER BY score DESC LIMIT 1
+  - id: q21
+    question: Why is India behind its signings target this year? What is the main driver?
+    sql: SELECT main_driver FROM insights.gap_drivers WHERE level = 'market' AND market_name = 'India'
+  - id: q22
+    question: Which territories are behind target mainly because of headcount?
+    sql: SELECT territory_name FROM insights.gap_drivers WHERE level = 'territory' AND main_driver = 'Headcount' AND gap < 0
 
 behaviour:
   - id: b01

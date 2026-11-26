@@ -23,6 +23,7 @@ tables:
       market_id: 2-letter market code (IN, JP, AU, UK, DE, US, CA, MX)
       market_name: market display name, e.g. 'India'
       region: JAPA, EMEA, NA or LACC
+      tenure_months: months since the rep was hired, at that month
       signings: new merchants signed in the month
       mid_large_signings: signings in Mid or Large segment
       expected_annual_volume_usd: expected annual charge volume of merchants signed
@@ -119,6 +120,27 @@ tables:
       lower: lower bound (80%)
       upper: upper bound (80%)
       model: model used
+  insights.gap_drivers:
+    grain: one row per market or territory (YTD of current plan year vs target)
+    description: >
+      WHY a market or territory is ahead of or behind its signings target. The gap splits exactly into
+      headcount_effect + ramp_effect + productivity_effect. Use this table for any "why" question about targets.
+    columns:
+      level: market or territory
+      market_name: market name
+      territory_name: territory name (NULL on market rows)
+      actual: YTD signings
+      target: YTD signings target
+      gap: actual - target (negative = behind)
+      gap_pct: gap / target (fraction)
+      headcount_effect: signings gained or lost from having more or fewer reps than planned
+      ramp_effect: signings lost to reps still ramping up, or a different role mix, vs plan
+      productivity_effect: signings gained or lost from signings per fully productive rep vs plan
+      main_driver: Headcount, Ramp & role mix, or Productivity (the effect that moved the result most)
+      avg_reps_actual: average active reps in the period
+      avg_reps_plan: average reps the plan assumed (team at plan time plus planned hiring)
+      plan_year: plan year
+      as_of_month: last month included
   dq.results:
     grain: one row per data-quality check in the latest run
     description: Data quality checks behind the published numbers.
@@ -144,12 +166,17 @@ metrics:
   new_merchant_volume:
     synonyms: [new volume, "new business volume", spend, charge volume]
     sql: SUM(new_merchant_volume_usd)
+  gap_drivers:
+    synonyms: [why, "reason", "behind target", "what is driving", "root cause"]
+    sql: SELECT from insights.gap_drivers; filter level = 'market' or 'territory'
+    note: Explain with the three effects; they add up exactly to the gap.
   yoy_growth:
     synonyms: [growth, "year over year"]
     sql: compare the same months of the current and prior year, never a partial year against a full year
 
 rules:
   - "Use only the tables above, always schema-qualified (e.g. marts.rep_monthly)."
+  - "For WHY questions about being ahead of or behind target, read insights.gap_drivers."
   - "YTD means months of the current plan year up to and including the as-of month."
   - "For a ratio over a group, divide sums; do not average per-row ratios."
   - "Match names exactly: market_name 'United States', 'United Kingdom'; territory_name like 'India Territory 3'."

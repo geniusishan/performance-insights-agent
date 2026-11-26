@@ -1,6 +1,6 @@
 # Evaluation report
 
-Model: `n/a (offline)`  ·  generated 2026-11-23 11:14
+Model: `n/a (offline)`  ·  generated 2026-11-26 09:18
 
 | Metric | Result |
 |---|---|

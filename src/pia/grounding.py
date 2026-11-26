@@ -32,6 +32,8 @@ def extract_numbers(text: str) -> list[tuple[str, float, int, str | None]]:
     """-> (surface text, value, decimals shown, unit)"""
     out = []
     for m in NUM_RE.finditer(text):
+        if re.match(r"-[A-Za-z]", text[m.end():m.end() + 2]):
+            continue  # part of a label such as "90-day" or "12-month", not a statistic
         whole, frac, unit = m.group(1), m.group(2), m.group(3)
         val = float(whole.replace(",", "") + ("." + frac if frac else ""))
         out.append((m.group(0).strip(), val, len(frac) if frac else 0, unit))

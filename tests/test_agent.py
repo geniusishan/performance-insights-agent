@@ -146,3 +146,9 @@ def test_grounding_examples():
     df = pd.DataFrame({"m": ["India"], "att": [0.9234], "vol": [956_100_000.0]})
     assert grounding.check("India is at 92.3% with $956.1M.", df).ok
     assert not grounding.check("India is at 97% of target.", df).ok
+
+
+def test_grounding_ignores_hyphenated_labels():
+    df = pd.DataFrame({"rate": [0.764]})
+    assert grounding.check("The 90-day activation rate is 76.4% over a 12-month window.", df).ok
+    assert not grounding.check("The 90-day activation rate is 81%.", df).ok

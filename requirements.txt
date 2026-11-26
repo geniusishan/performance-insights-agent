@@ -11,7 +11,7 @@ click==8.5.1
 distro==1.9.0
 duckdb==2.0.1
 et-xmlfile==2.0.0
-field-performance-hub @ git+https://github.com/geniusishan/field-performance-hub@f516cef081780db7b1bac5121e9b166e0b38ccf9
+field-performance-hub @ git+https://github.com/geniusishan/field-performance-hub@771a1c58cd65d35ccbd07d21abb45a107dec5e69
 formulaic==1.2.2
 h11==0.16.0
 httpcore==1.0.9

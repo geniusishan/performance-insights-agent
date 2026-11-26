@@ -21,12 +21,12 @@ from pia.settings import ROOT, policy  # noqa: E402
 st.set_page_config(page_title="Performance Insights Agent", page_icon="🤖", layout="wide")
 
 EXAMPLES = [
+    "Why is Japan behind target this year?",
     "Which markets are behind target this year, and what's their biggest gap?",
     "Show monthly signings for India over the last 12 months",
     "Which 5 territories have the lowest weighted score?",
     "How does 90-day activation compare across regions?",
     "What's the signings forecast for Q1 2027 by market?",
-    "How were the 2027 targets set for Japan's territories?",
 ]
 
 if "session_id" not in st.session_state:

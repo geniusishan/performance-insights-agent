@@ -10,6 +10,7 @@ allowed_tables:
   - targets.territory_plan
   - forecast.signings
   - dq.results
+  - insights.gap_drivers
 
 blocked_functions:   # file / network / system access
   - read_csv

@@ -16,6 +16,11 @@ FEW_SHOT = [
      "SELECT region, SUM(activated_90d) / NULLIF(SUM(activation_eligible), 0) AS activation_rate\n"
      "FROM marts.rep_monthly\nWHERE EXTRACT(YEAR FROM month) = {plan_year} AND month <= DATE '{as_of}'\n"
      "GROUP BY region\nORDER BY activation_rate DESC"),
+    ("What is driving the gap to target in Canada Territory 4?",
+     "SELECT territory_name, actual, ROUND(target) AS target, ROUND(gap) AS gap, gap_pct,\n"
+     "       ROUND(headcount_effect) AS headcount_effect, ROUND(ramp_effect) AS ramp_effect,\n"
+     "       ROUND(productivity_effect) AS productivity_effect, main_driver, avg_reps_actual, avg_reps_plan\n"
+     "FROM insights.gap_drivers\nWHERE level = 'territory' AND territory_name = 'Canada Territory 4'"),
     ("How many Large merchants were signed in Healthcare by market this year?",
      "SELECT market_id, COUNT(*) AS large_healthcare_signings\nFROM marts.fct_signings\n"
      "WHERE segment = 'Large' AND industry = 'Healthcare' AND EXTRACT(YEAR FROM signed_month) = {plan_year}\n"
@@ -119,8 +124,9 @@ def definition_prompt(question: str) -> tuple[str, str]:
 def brief_prompt(facts: dict) -> tuple[str, str]:
     system = (
         "Write a weekly sales-performance brief for senior leaders from the FACTS JSON only.\n"
-        "Structure (markdown): a one-line headline; '**Where we are**' 2-3 bullets; '**Watch list**' 2-3 bullets; "
-        "'**Data confidence**' 1 bullet. Max 170 words. Use only numbers present in FACTS (rounding allowed). "
+        "Structure (markdown): a one-line headline; '**Where we are**' 2-3 bullets; '**Why we're behind**' 1-2 bullets "
+        "using the driver effects in FACTS; '**Watch list**' 2-3 bullets; "
+        "'**Data confidence**' 1 bullet. Max 200 words. Use only numbers present in FACTS (rounding allowed). "
         "No speculation about causes not supported by FACTS.\n"
         'Return {"brief": "markdown text"}'
     )
