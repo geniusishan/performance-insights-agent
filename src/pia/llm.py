@@ -56,12 +56,13 @@ class OpenAICompatibleLLM:
                  temperature: float = 0.0):
         from openai import OpenAI
 
-        self.provider = (provider or os.environ.get("LLM_PROVIDER", "gemini")).lower()
+        clean = lambda v: (v or "").strip().strip('"').strip("'").strip()  # noqa: E731 - pasted secrets often carry spaces, newlines or quotes
+        self.provider = clean(provider or os.environ.get("LLM_PROVIDER", "gemini")).lower() or "gemini"
         if self.provider not in PROVIDERS:
             raise ValueError(f"LLM_PROVIDER must be one of {sorted(PROVIDERS)}")
         base_url, default_model = PROVIDERS[self.provider]
-        self.model = model or os.environ.get("LLM_MODEL") or default_model
-        key = api_key or os.environ.get("LLM_API_KEY") or ("ollama" if self.provider == "ollama" else None)
+        self.model = clean(model or os.environ.get("LLM_MODEL")) or default_model
+        key = clean(api_key or os.environ.get("LLM_API_KEY")) or ("ollama" if self.provider == "ollama" else None)
         if not key:
             raise RuntimeError("LLM_API_KEY is not set. Copy .env.example to .env and add a free Gemini or Groq key.")
         self.client = OpenAI(api_key=key, base_url=base_url, timeout=90, max_retries=3)

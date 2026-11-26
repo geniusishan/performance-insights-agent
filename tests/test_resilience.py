@@ -78,3 +78,12 @@ def test_eval_preflight_stops_on_broken_llm():
     fake = FakeLLM({"ping": _boom})
     with pytest.raises(SystemExit, match="preflight failed"):
         preflight(fake)
+
+
+def test_llm_settings_tolerate_pasted_whitespace_and_quotes(monkeypatch):
+    monkeypatch.setenv("LLM_API_KEY", '  "abc123"\n')
+    monkeypatch.setenv("LLM_MODEL", " 'gemini-x-flash'\n")
+    monkeypatch.setenv("LLM_PROVIDER", "Gemini ")
+    llm = OpenAICompatibleLLM()
+    assert llm.client.api_key == "abc123"
+    assert llm.model == "gemini-x-flash" and llm.provider == "gemini"

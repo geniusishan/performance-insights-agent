@@ -167,8 +167,10 @@ def preflight(llm) -> None:
     try:
         llm.complete_json("ping", "Reply with JSON.", 'Return {"ok": true}')
     except Exception as e:  # noqa: BLE001
-        raise SystemExit(f"LLM preflight failed for {llm.name}: {type(e).__name__}: {str(e)[:600]}\n"
-                         "Check the LLM_MODEL secret (exact model id from AI Studio) and the API key.")
+        cause = f" (cause: {type(e.__cause__).__name__}: {str(e.__cause__)[:300]})" if e.__cause__ else ""
+        raise SystemExit(f"LLM preflight failed for {llm.name}: {type(e).__name__}: {str(e)[:600]}{cause}\n"
+                         "Check the LLM_MODEL secret (exact model id from AI Studio) and the API key "
+                         "(no spaces, quotes or line breaks).")
     print(f"LLM preflight OK ({llm.name})")
 
 
