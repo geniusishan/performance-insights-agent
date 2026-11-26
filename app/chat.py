@@ -60,7 +60,7 @@ def get_agent():
 def ensure_warehouse() -> bool:
     """On a fresh deploy, build the Field Performance Hub warehouse if it isn't there."""
     from pia.settings import warehouse_path
-    if not warehouse_path().exists():
+    if not warehouse_path().exists() or not _has_table("insights", "gap_drivers"):
         try:
             from fph import pipeline
         except ImportError:
@@ -69,6 +69,19 @@ def ensure_warehouse() -> bool:
         warehouse_path().parent.mkdir(parents=True, exist_ok=True)
         pipeline.run(verbose=False)
     return True
+
+
+def _has_table(schema: str, table: str) -> bool:
+    """False when the warehouse was built by an older version (e.g. before gap drivers existed)."""
+    try:
+        con = db.connect()
+    except Exception:  # noqa: BLE001
+        return False
+    try:
+        return bool(con.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ? AND table_name = ?",
+                                [schema, table]).fetchone()[0])
+    finally:
+        con.close()
 
 
 ensure_warehouse()
